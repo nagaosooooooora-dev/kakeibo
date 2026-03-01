@@ -1,10 +1,8 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// Firebase Console > Project settings > General > Your apps (Web app)
+// から取得した firebaseConfig をそのまま貼っています。
+// ※このファイルは「設定値をexportするだけ」です。initializeApp は app.js 側でやります。
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyC_AT39D4jGnnt3aTfyQhoGn0AvDpMZEhs",
   authDomain: "kakeibo-8822f.firebaseapp.com",
   projectId: "kakeibo-8822f",
@@ -12,6 +10,3 @@ const firebaseConfig = {
   messagingSenderId: "777387799408",
   appId: "1:777387799408:web:a805438b5d5a1656a195b5"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
