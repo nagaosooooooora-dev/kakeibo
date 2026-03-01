@@ -1,7 +1,7 @@
 import { firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 // Budget App Prototype (localStorage)
 // v0.6 — All missing features in one pass:
@@ -42,7 +42,7 @@ const DEFAULT_BUDGET = {
   "交際費": 20000
 };
 
-const STORAGE_KEY = "mfBudgetProto_v09";
+const STORAGE_KEY = "mfBudgetProto_v10";
 
 let state = {
   config: {
@@ -95,6 +95,8 @@ function monthFromDateISO(dateISO){
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
+// Keep session across reloads (important on iOS Safari)
+setPersistence(auth, browserLocalPersistence).catch(()=>{});
 const provider = new GoogleAuthProvider();
 
 let uid = null;
@@ -1689,7 +1691,7 @@ async function doLogin(){
     } catch (e2){
       console.error(e2);
     }
-    alert("ログインに失敗しました。FirebaseのAuthorized domainsに、このURLのドメイン/IPが入っているかも確認してください。");
+    alert("ログインに失敗しました。Authorized domainsの設定に加えて、iPhoneのSafariがプライベートブラウズ中でないか / Cookieをブロックしていないかも確認してください。");
   }
 }
 async function doLogout(){
@@ -1704,8 +1706,18 @@ loginBtn?.addEventListener("click", doLogin);
 gateLoginBtn?.addEventListener("click", doLogin);
 logoutBtn?.addEventListener("click", doLogout);
 
-// Complete redirect sign-in (iOS Safari)
-getRedirectResult(auth).catch(()=>{});
+// Complete redirect sign-in (iOS Safari) - do it early
+(async ()=>{
+  try{
+    setSyncChip("同期: ログイン確認中…");
+    await getRedirectResult(auth);
+  } catch(e){
+    // ignore when there's no redirect to complete
+    console.warn(e);
+  } finally {
+    setSyncChip("同期: -");
+  }
+})();
 
 onAuthStateChanged(auth, async (user)=>{
   if (!user){
