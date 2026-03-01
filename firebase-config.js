@@ -1,7 +1,4 @@
-// Firebase Console > Project settings > General > Your apps (Web app)
-// から取得した firebaseConfig をそのまま貼っています。
-// ※このファイルは「設定値をexportするだけ」です。initializeApp は app.js 側でやります。
-
+// 設定値を export するだけ（import しない！）
 export const firebaseConfig = {
   apiKey: "AIzaSyC_AT39D4jGnnt3aTfyQhoGn0AvDpMZEhs",
   authDomain: "kakeibo-8822f.firebaseapp.com",
