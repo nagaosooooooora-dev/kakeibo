@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Budget App Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbarInner">
+      <div class="brand">
+        <div class="appIcon">¥</div>
+        <div>
+          <div class="appTitle">家計簿</div>
+          <div class="appSub">MF転記 / 月次締め / 取引入力</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label class="field">
+          <span>月</span>
+          <input type="month" id="monthPicker">
+        </label>
+
+        <div class="auth">
+          <div class="authUser" id="authUser">未ログイン</div>
+          <button id="loginBtn" class="btn ghost">Googleログイン</button>
+          <button id="logoutBtn" class="btn ghost hidden">ログアウト</button>
+        </div>
+
+        <button id="bulkInputBtn" class="btn">月次まとめ入力</button>
+        <button id="addTxBtn" class="btn">＋ 支出追加</button>
+        <button id="editBudgetBtn" class="btn">予算編集</button>
+        <button id="settingsBtn" class="btn ghost">表示設定</button>
+
+        <button id="closeMonthBtn" class="btn primary">締める</button>
+        <button id="reopenMonthBtn" class="btn ghost">締め解除</button>
+
+        <button id="seedBtn" class="btn ghost">サンプル投入</button>
+        <button id="resetBtn" class="btn ghost danger" title="全データ削除（localStorage）">初期化</button>
+      </div>
+    </div>
+
+    <section class="kpis" id="kpiCards"></section>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <div class="panelHeader">
+        <h2>カテゴリ</h2>
+        <div class="panelHint">実績は取引から自動集計（表で直接入力すると「調整」取引として保存）。締めた月は予算/取引が凍結。</div>
+      </div>
+
+      <div class="row" style="margin-top:10px; justify-content:space-between">
+        <div class="chips">
+          <span class="chip" id="monthStatusChip">-</span>
+          <span class="chip" id="budgetSourceChip">-</span>
+          <span class="chip" id="syncChip">同期: -</span>
+        </div>
+        <div class="row">
+          <button id="syncBudgetBtn" class="btn ghost">今月予算をマスターから更新</button>
+        </div>
+      </div>
+
+      <div class="tableWrap">
+        <table id="budgetTable" class="table">
+          <thead>
+            <tr>
+              <th class="stickyCol">カテゴリ</th>
+              <th class="num">予算</th>
+              <th class="num">実績</th>
+              <th class="num">差分</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="grid2">
+      <section class="panel" id="txPanel">
+        <div class="panelHeader">
+          <h2>取引（この月）</h2>
+          <div class="panelHint">イレギュラーは突発だけ。内訳はカテゴリ内にぶら下がる。</div>
+        </div>
+
+        <div class="row" style="margin-top:10px; justify-content:space-between">
+          <div class="row">
+            <button class="seg active" data-filter="all">全て</button>
+            <button class="seg" data-filter="irregular">イレギュラー</button>
+            <button class="seg" data-filter="manual">調整</button>
+          </div>
+          <div class="row">
+            <input id="txSearch" class="search" placeholder="メモ/カテゴリで検索" />
+          </div>
+        </div>
+
+        <div id="txList" class="list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panelHeader">
+          <h2>AI改善点</h2>
+          <div class="panelHint">締めた月だけを元に、偏り・借金・イレギュラーをざっくり分析。</div>
+        </div>
+        <div id="aiBox" class="aiBox"></div>
+
+        <div class="panelHeader" style="margin-top:12px">
+          <h2>借金</h2>
+          <div class="panelHint">カテゴリ赤字が積み上がる。返済で減る。</div>
+        </div>
+        <div id="debtList" class="list"></div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panelHeader">
+        <h2>12ヶ月レポート</h2>
+        <div class="panelHint">直近12ヶ月の締め月のみ集計（差分＝プール扱いOK）。</div>
+      </div>
+      <div id="report" class="list"></div>
+    </section>
+  </main>
+
+  <!-- Close Modal -->
+  <div id="modalBackdrop" class="backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle" id="modalTitle">締め（確認 & 返済）</div>
+          <div class="modalSub" id="modalSub">-</div>
+        </div>
+        <button id="modalCloseX" class="iconBtn" aria-label="閉じる">✕</button>
+      </div>
+
+      <div id="closeSummary" class="modalCard"></div>
+
+      <div id="forcedRepaySection" class="modalCard warning hidden">
+        <div class="cardTitle">赤字月：強制返済 5,000</div>
+        <div class="row">
+          <label class="field">
+            <span>返済先</span>
+            <select id="forcedToSelect"></select>
+          </label>
+        </div>
+        <div class="small">※借金があるカテゴリのみ表示（締め処理で赤字分が加算された後の状態）。</div>
+      </div>
+
+      <div class="modalCard">
+        <div class="cardTitle">返済に使える余剰 / 現在の借金（この締め時点）</div>
+        <div class="small">選択した「返済元」「返済先」に応じて、各行に残りが表示されます。</div>
+        <div id="visualPanel" class="visualPanel"></div>
+      </div>
+
+      <div class="modalCard">
+        <div class="cardTitle">任意返済（この月のカテゴリ余剰から）</div>
+        <div class="small">月全体が赤字でも、カテゴリ単体で余剰があれば返済に回せます。</div>
+
+        <div id="repayRows" class="repayRows"></div>
+
+        <div class="row" style="margin-top:10px">
+          <button id="addRepayRowBtn" class="btn">＋ 返済を追加</button>
+        </div>
+
+        <pre id="repayValidation" class="validation"></pre>
+      </div>
+
+      <div class="modalFooter">
+        <button id="modalCancelBtn" class="btn ghost">キャンセル</button>
+        <button id="modalConfirmBtn" class="btn primary">確定して締める</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tx Modal -->
+  <div id="txBackdrop" class="backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="txTitle">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle" id="txTitle">支出追加</div>
+          <div class="modalSub" id="txSub">-</div>
+        </div>
+        <button id="txCloseX" class="iconBtn" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="modalCard">
+        <div class="row">
+          <label class="field">
+            <span>日付</span>
+            <input type="date" id="txDate" />
+          </label>
+          <label class="field" style="flex:1; min-width:220px">
+            <span>カテゴリ</span>
+            <select id="txCat"></select>
+          </label>
+          <label class="field" style="flex:1; min-width:220px">
+            <span>サブカテゴリ（任意）</span>
+            <input type="text" id="txSubcat" placeholder="例: 食事 / 旅行" />
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <label class="field">
+            <span>金額</span>
+            <input type="number" inputmode="numeric" id="txAmount" min="0" step="100" placeholder="例: 1200" />
+          </label>
+          <label class="field" style="flex:1">
+            <span>メモ</span>
+            <input type="text" id="txMemo" placeholder="例: 友達とランチ / チケット" />
+          </label>
+          <label class="field" style="flex-direction:row; align-items:center; gap:10px; margin-top:20px">
+            <input type="checkbox" id="txIrregular" />
+            <span>イレギュラー（突発）</span>
+          </label>
+        </div>
+
+        <div class="small">※「イレギュラー」はカテゴリ階層ではなく、変動費内のステータスとして扱います（あなたの設計）。</div>
+      </div>
+
+      <div class="modalFooter">
+        <button id="txCancelBtn" class="btn ghost">キャンセル</button>
+        <button id="txSaveBtn" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Budget Modal -->
+  <div id="budgetBackdrop" class="backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="budgetTitle">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle" id="budgetTitle">予算編集（マスター）</div>
+          <div class="modalSub">締めた月の予算は変わりません（凍結）。</div>
+        </div>
+        <button id="budgetCloseX" class="iconBtn" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="modalCard">
+        <div class="small">ここで編集するのは「今後のデフォルト予算」です。既に作られている月は、その月の予算スナップショットを参照します。</div>
+        <div class="budgetGrid" id="budgetGrid"></div>
+      </div>
+
+      <div class="modalFooter">
+        <button id="budgetCancelBtn" class="btn ghost">キャンセル</button>
+        <button id="budgetSaveBtn" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Bulk Input Modal -->
+  <div id="bulkBackdrop" class="backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle" id="bulkTitle">月次まとめ入力</div>
+          <div class="modalSub" id="bulkSub">-</div>
+        </div>
+        <button id="bulkCloseX" class="iconBtn" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="modalCard">
+        <div class="small">カテゴリごとの「今月の合計支出」を一気に入れます。保存すると各カテゴリに「月次まとめ」取引が1件ずつ作られます（後から明細を足したくなっても拡張可能）。</div>
+        <div class="row" style="margin-top:10px; justify-content:space-between">
+          <div class="small">※未入力は0扱い（既存の月次まとめがある場合は上書き）。</div>
+          <button id="bulkCopyPrevBtn" class="btn ghost">前月をコピー</button>
+        </div>
+        <div id="bulkGrid" class="budgetGrid"></div>
+      </div>
+
+      <div class="modalFooter">
+        <button id="bulkCancelBtn" class="btn ghost">キャンセル</button>
+        <button id="bulkSaveBtn" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsBackdrop" class="backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle" id="settingsTitle">表示設定</div>
+          <div class="modalSub">今はミニマル。必要になったら“取引一覧”を復活できます。</div>
+        </div>
+        <button id="settingsCloseX" class="iconBtn" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="modalCard">
+        <div class="row" style="align-items:center; justify-content:space-between">
+          <div>
+            <div class="cardTitle">取引一覧を表示</div>
+            <div class="small">デフォルトは非表示（まとめ入力中心の運用向け）。</div>
+          </div>
+          <label class="field" style="flex-direction:row; align-items:center; gap:10px">
+            <input type="checkbox" id="toggleTxPanel">
+            <span>ON</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modalFooter">
+        <button id="settingsDoneBtn" class="btn primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+
+  <div id="authGate" class="authGate">
+    <div class="authGateCard">
+      <div class="authGateTitle">ログインしてください</div>
+      <div class="authGateText">このアプリはGoogleログイン後に、同じデータをPC / iPhone / iPadで同期します（オフライン入力もOK）。</div>
+      <button id="gateLoginBtn" class="btn primary" style="width:100%; margin-top:12px">Googleログイン</button>
+      <div class="authGateFoot">※ Firebaseプロジェクト設定がまだなら、<code>firebase-config.js</code>に設定値を入れてください。</div>
+    </div>
+  </div>
+
+</body>
+</html>
