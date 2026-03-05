@@ -33,6 +33,8 @@
         <button id="addTxBtn" class="btn">＋ 支出追加</button>
         <button id="editBudgetBtn" class="btn">予算編集</button>
         <button id="settingsBtn" class="btn ghost">表示設定</button>
+        <button id="incomeBtn" class="btn ghost">収入</button>
+        <button id="rulesBtn" class="btn ghost">ルール</button>
 
         <button id="closeMonthBtn" class="btn primary">締める</button>
         <button id="reopenMonthBtn" class="btn ghost">締め解除</button>
@@ -314,6 +316,116 @@
       <div class="authGateText">このアプリはGoogleログイン後に、同じデータをPC / iPhone / iPadで同期します（オフライン入力もOK）。</div>
       <button id="gateLoginBtn" class="btn primary" style="width:100%; margin-top:12px">Googleログイン</button>
       <div class="authGateFoot">※ Firebaseプロジェクト設定がまだなら、<code>firebase-config.js</code>に設定値を入れてください。</div>
+    </div>
+  </div>
+
+
+  <!-- Income Modal -->
+  <div id="incomeBackdrop" class="backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="incomeTitle">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle" id="incomeTitle">収入</div>
+          <div class="modalSub">給与（前月分）/ 副収入 / ボーナスを入力します。</div>
+        </div>
+        <button id="incomeCloseX" class="iconBtn" aria-label="閉じる">×</button>
+      </div>
+
+      <div class="modalBody">
+        <div class="grid2">
+          <label class="field">
+            <div class="fieldLabel">給与（前月分）</div>
+            <input id="incomeSalary" type="number" inputmode="numeric" placeholder="0" />
+          </label>
+          <label class="field">
+            <div class="fieldLabel">副収入</div>
+            <input id="incomeSide" type="number" inputmode="numeric" placeholder="0" />
+          </label>
+          <label class="field">
+            <div class="fieldLabel">ボーナス</div>
+            <input id="incomeBonus" type="number" inputmode="numeric" placeholder="0" />
+          </label>
+          <div class="field">
+            <div class="fieldLabel">収入合計</div>
+            <div class="bigNumber" id="incomeSumView">0</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="sectionTitle">年間サマリー（今年）</div>
+        <div class="grid3">
+          <div class="miniCard">
+            <div class="miniLabel">年間収入</div>
+            <div class="miniValue" id="yearIncomeView">0</div>
+          </div>
+          <div class="miniCard">
+            <div class="miniLabel">年間支出</div>
+            <div class="miniValue" id="yearExpenseView">0</div>
+          </div>
+          <div class="miniCard">
+            <div class="miniLabel">年間収支</div>
+            <div class="miniValue" id="yearBalanceView">0</div>
+          </div>
+        </div>
+        <div class="hint">※ 年間支出は「支出＋ロマン（締め済みは確定値、未締めは見込み）」を合算します。</div>
+      </div>
+
+      <div class="modalFooter">
+        <button id="incomeDoneBtn" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules Modal -->
+  <div id="rulesBackdrop" class="backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle" id="rulesTitle">ルール</div>
+          <div class="modalSub">ルールを確認するだけ（編集なし）。</div>
+        </div>
+        <button id="rulesCloseX" class="iconBtn" aria-label="閉じる">×</button>
+      </div>
+
+      <div class="modalBody">
+        <details class="acc" open>
+          <summary>ロマン積立（支出扱い）</summary>
+          <ul>
+            <li>基本：10,000</li>
+            <li>赤字月：<b>5,000積立 + 5,000返済（必須）</b></li>
+            <li>黒字月：15,000にしても黒字維持できるなら15,000、できないなら10,000</li>
+          </ul>
+        </details>
+
+        <details class="acc">
+          <summary>トントン判定</summary>
+          <ul>
+            <li>「予算合計」に対して <b>±5%</b> をトントンとする</li>
+          </ul>
+        </details>
+
+        <details class="acc">
+          <summary>借金と返済</summary>
+          <ul>
+            <li>カテゴリ予算超過分は借金として累積</li>
+            <li>余剰カテゴリから任意に返済できる</li>
+            <li>ロマン返済先は自分で選ぶ</li>
+          </ul>
+        </details>
+
+        <details class="acc">
+          <summary>月締め</summary>
+          <ul>
+            <li>カード反映の遅れに備えて、締めは手動</li>
+            <li>締めた月は結果を固定（後から予算変更しても締め月は増やさない）</li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="modalFooter">
+        <button id="rulesDoneBtn" class="btn primary">閉じる</button>
+      </div>
     </div>
   </div>
 

@@ -1101,6 +1101,17 @@ const settingsModal = {
   backdrop:null, closeX:null, done:null, toggleTxPanel:null
 };
 
+const incomeModal = {
+  backdrop:null, closeX:null, done:null,
+  salary:null, side:null, bonus:null, sumView:null,
+  yearIncome:null, yearExpense:null, yearBalance:null
+};
+
+const rulesModal = {
+  backdrop:null, closeX:null, done:null
+};
+
+
 function openBudgetModal(){
   // show master only
   budgetModal.grid.innerHTML = "";
@@ -1648,6 +1659,144 @@ function wireSettingsModal(){
   settingsModal.backdrop.addEventListener("click", (e)=>{ if (e.target === settingsModal.backdrop) closeSettingsModal(); });
 }
 
+function currentMonthKey(){
+  const mp = document.getElementById("monthPicker");
+  return mp?.value || ymNow();
+}
+
+function getMonthIncome(month){
+  const m = state.months[month] || (state.months[month] = { closed:false, budgetSnapshot:null, tx:[] });
+  if (!m.income) m.income = { salary:0, side:0, bonus:0 };
+  return m.income;
+}
+
+function incomeTotalOf(month){
+  const inc = getMonthIncome(month);
+  return Number(inc.salary||0) + Number(inc.side||0) + Number(inc.bonus||0);
+}
+
+// Romance outflow (支出扱い) for annual / balance display.
+// Closed month: use closeMeta (deposit + forced repay) if available. Otherwise use plan from current delta.
+function romanceOutflowOf(month){
+  const m = state.months[month] || {};
+  if (m.closed && m.closeMeta){
+    const dep = Number(m.closeMeta.romanceDeposit||0);
+    const fr = Number(m.closeMeta.forcedRepay?.amount||0);
+    return dep + fr;
+  }
+  const { delta } = computeMonthTotals(month);
+  if (delta < 0) return 10000; // 5k deposit + 5k repay
+  // black / break-even: try 15k if still non-negative after romance
+  return (delta - 15000 >= 0) ? 15000 : 10000;
+}
+
+function annualTotals(year){
+  const prefix = `${year}-`;
+  let yIncome = 0;
+  let yExpense = 0;
+
+  Object.keys(state.months||{}).forEach(k=>{
+    if (!k.startsWith(prefix)) return;
+    const { totalActual } = computeMonthTotals(k);
+    yIncome += incomeTotalOf(k);
+    yExpense += Number(totalActual||0) + romanceOutflowOf(k);
+  });
+
+  return { yIncome, yExpense, yBalance: yIncome - yExpense };
+}
+
+function openIncomeModal(){
+  const month = currentMonthKey();
+  const inc = getMonthIncome(month);
+
+  incomeModal.salary.value = inc.salary ?? 0;
+  incomeModal.side.value = inc.side ?? 0;
+  incomeModal.bonus.value = inc.bonus ?? 0;
+
+  const update = ()=>{
+    const s = Number(incomeModal.salary.value||0);
+    const si = Number(incomeModal.side.value||0);
+    const b = Number(incomeModal.bonus.value||0);
+    const sum = s+si+b;
+    incomeModal.sumView.textContent = yen(sum);
+
+    const y = Number(month.split("-")[0]);
+    const { yIncome, yExpense, yBalance } = annualTotals(y);
+    incomeModal.yearIncome.textContent = yen(yIncome);
+    incomeModal.yearExpense.textContent = yen(yExpense);
+    incomeModal.yearBalance.textContent = `${yBalance>=0?"+":""}${yen(yBalance)}`;
+  };
+
+  incomeModal.salary.oninput = update;
+  incomeModal.side.oninput = update;
+  incomeModal.bonus.oninput = update;
+
+  update();
+  incomeModal.backdrop.classList.remove("hidden");
+  incomeModal.backdrop.setAttribute("aria-hidden","false");
+}
+
+function closeIncomeModal(){
+  incomeModal.backdrop.classList.add("hidden");
+  incomeModal.backdrop.setAttribute("aria-hidden","true");
+}
+
+async function saveIncomeModal(){
+  const month = currentMonthKey();
+  const inc = getMonthIncome(month);
+
+  inc.salary = Number(incomeModal.salary.value||0);
+  inc.side = Number(incomeModal.side.value||0);
+  inc.bonus = Number(incomeModal.bonus.value||0);
+
+  // sync + rerender
+  await saveState();
+  closeIncomeModal();
+  render();
+}
+
+function openRulesModal(){
+  rulesModal.backdrop.classList.remove("hidden");
+  rulesModal.backdrop.setAttribute("aria-hidden","false");
+}
+function closeRulesModal(){
+  rulesModal.backdrop.classList.add("hidden");
+  rulesModal.backdrop.setAttribute("aria-hidden","true");
+}
+
+function wireIncomeModal(){
+  incomeModal.backdrop = document.getElementById("incomeBackdrop");
+  incomeModal.closeX = document.getElementById("incomeCloseX");
+  incomeModal.done = document.getElementById("incomeDoneBtn");
+  incomeModal.salary = document.getElementById("incomeSalary");
+  incomeModal.side = document.getElementById("incomeSide");
+  incomeModal.bonus = document.getElementById("incomeBonus");
+  incomeModal.sumView = document.getElementById("incomeSumView");
+  incomeModal.yearIncome = document.getElementById("yearIncomeView");
+  incomeModal.yearExpense = document.getElementById("yearExpenseView");
+  incomeModal.yearBalance = document.getElementById("yearBalanceView");
+
+  const incomeBtn = document.getElementById("incomeBtn");
+  incomeBtn?.addEventListener("click", openIncomeModal);
+
+  incomeModal.closeX.addEventListener("click", closeIncomeModal);
+  incomeModal.backdrop.addEventListener("click",(e)=>{ if (e.target === incomeModal.backdrop) closeIncomeModal(); });
+  incomeModal.done.addEventListener("click", saveIncomeModal);
+}
+
+function wireRulesModal(){
+  rulesModal.backdrop = document.getElementById("rulesBackdrop");
+  rulesModal.closeX = document.getElementById("rulesCloseX");
+  rulesModal.done = document.getElementById("rulesDoneBtn");
+  const rulesBtn = document.getElementById("rulesBtn");
+  rulesBtn?.addEventListener("click", openRulesModal);
+
+  rulesModal.closeX.addEventListener("click", closeRulesModal);
+  rulesModal.done.addEventListener("click", closeRulesModal);
+  rulesModal.backdrop.addEventListener("click",(e)=>{ if (e.target === rulesModal.backdrop) closeRulesModal(); });
+}
+
+
 
 // --- init wiring + boot ---
 wireCloseModal();
@@ -1655,6 +1804,8 @@ wireTxModal();
 wireBudgetModal();
 wireBulkModal();
 wireSettingsModal();
+wireIncomeModal();
+wireRulesModal();
 
 // initialize month picker to current month if empty
 
