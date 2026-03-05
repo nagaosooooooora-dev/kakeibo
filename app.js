@@ -1835,28 +1835,32 @@ function showGate(show){
 
 async function doLogin(){
   try{
-    const ua = navigator.userAgent || "";
-    const isIOS = /iPhone|iPad|iPod/i.test(ua);
-    const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
 
-// iOS は WebView/Safari 問わず popup が不安定になりがちなので redirect 固定
-if (isIOS){
-  await signInWithRedirect(auth, provider);
-  return;
-}
+    const provider = new GoogleAuthProvider();
 
-// iOS以外は popup → 失敗したら redirect
-await signInWithPopup(auth, provider);
-  } catch (e){
-    console.error(e);
-    // If popup failed, try redirect as a fallback.
-    try{
+    // iPhone (iOS) は popup が失敗しやすいので redirect を使う
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+    if (isIOS){
       await signInWithRedirect(auth, provider);
       return;
-    } catch (e2){
+    }
+
+    // iPhone以外は popup
+    await signInWithPopup(auth, provider);
+
+  } catch (e){
+
+    console.error(e);
+
+    // popupが失敗した場合は redirect にフォールバック
+    try{
+      const provider = new GoogleAuthProvider();
+      await signInWithRedirect(auth, provider);
+    }catch(e2){
       console.error(e2);
     }
-    alert("ログインに失敗しました。Authorized domainsの設定に加えて、iPhoneのSafariがプライベートブラウズ中でないか / Cookieをブロックしていないかも確認してください。");
+
   }
 }
 async function doLogout(){
@@ -1871,16 +1875,32 @@ loginBtn?.addEventListener("click", doLogin);
 gateLoginBtn?.addEventListener("click", doLogin);
 logoutBtn?.addEventListener("click", doLogout);
 
-// Complete redirect sign-in (iOS Safari) - do it early
+// Complete redirect sign-in (iOS) - do it early
 (async ()=>{
   try{
     setSyncChip("同期: ログイン確認中…");
-    await getRedirectResult(auth);
+
+    const result = await getRedirectResult(auth);
+
+    // result がある = リダイレクトログイン直後の復帰
+    if (result?.user){
+      console.log("Redirect login success:", result.user.email);
+      // ここでは同期チップを "-" に戻さない（onAuthStateChangedで確定させる）
+      // ※ iOS Safariは auth state の反映がワンテンポ遅れることがあるため
+      return;
+    }
+
   } catch(e){
-    // ignore when there's no redirect to complete
-    console.warn(e);
+    // "redirect が無い" だけなら何も起きないので握りつぶしてOK
+    // ただし本当のエラーも混ざるのでコードだけは出しておく
+    console.warn("getRedirectResult:", e?.code || e);
+
   } finally {
-    setSyncChip("同期: -");
+    // 既にログイン済みなら onAuthStateChanged 側で同期表示が更新されるはず
+    // 未ログイン時だけ "-" に戻す（ログイン復帰直後に戻すとループに見えることがある）
+    if (!auth.currentUser){
+      setSyncChip("同期: -");
+    }
   }
 })();
 
