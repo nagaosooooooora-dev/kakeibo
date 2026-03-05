@@ -1,19 +1,7 @@
-console.log("app.js loaded");
-
-import { firebaseConfig } from "./firebase-config.js?v=1";
+import { firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import {
-  getAuth,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  setPersistence,
-  browserLocalPersistence,
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // Budget App Prototype (localStorage)
 // v0.6 — All missing features in one pass:
@@ -107,8 +95,6 @@ function monthFromDateISO(dateISO){
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
-// iPhone Safariでログイン状態を保持する
-await setPersistence(auth, browserLocalPersistence);
 // Keep session across reloads (important on iOS Safari)
 setPersistence(auth, browserLocalPersistence).catch(()=>{});
 const provider = new GoogleAuthProvider();
@@ -1836,22 +1822,27 @@ function showGate(show){
 }
 
 async function doLogin(){
-  console.log("LOGIN BUTTON CLICKED");   // ←この行を追加
-
   try{
-    const provider = new GoogleAuthProvider();
+    const ua = navigator.userAgent || "";
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
 
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-
-    if (isIOS){
+    // iOS Safari is strict about popups. Prefer redirect there.
+    if (isIOS && isSafari){
       await signInWithRedirect(auth, provider);
       return;
     }
-
     await signInWithPopup(auth, provider);
-
-  }catch(e){
+  } catch (e){
     console.error(e);
+    // If popup failed, try redirect as a fallback.
+    try{
+      await signInWithRedirect(auth, provider);
+      return;
+    } catch (e2){
+      console.error(e2);
+    }
+    alert("ログインに失敗しました。Authorized domainsの設定に加えて、iPhoneのSafariがプライベートブラウズ中でないか / Cookieをブロックしていないかも確認してください。");
   }
 }
 async function doLogout(){
@@ -1866,32 +1857,16 @@ loginBtn?.addEventListener("click", doLogin);
 gateLoginBtn?.addEventListener("click", doLogin);
 logoutBtn?.addEventListener("click", doLogout);
 
-// Complete redirect sign-in (iOS) - do it early
+// Complete redirect sign-in (iOS Safari) - do it early
 (async ()=>{
   try{
     setSyncChip("同期: ログイン確認中…");
-
-    const result = await getRedirectResult(auth);
-
-    // result がある = リダイレクトログイン直後の復帰
-    if (result?.user){
-      console.log("Redirect login success:", result.user.email);
-      // ここでは同期チップを "-" に戻さない（onAuthStateChangedで確定させる）
-      // ※ iOS Safariは auth state の反映がワンテンポ遅れることがあるため
-      return;
-    }
-
+    await getRedirectResult(auth);
   } catch(e){
-    // "redirect が無い" だけなら何も起きないので握りつぶしてOK
-    // ただし本当のエラーも混ざるのでコードだけは出しておく
-    console.warn("getRedirectResult:", e?.code || e);
-
+    // ignore when there's no redirect to complete
+    console.warn(e);
   } finally {
-    // 既にログイン済みなら onAuthStateChanged 側で同期表示が更新されるはず
-    // 未ログイン時だけ "-" に戻す（ログイン復帰直後に戻すとループに見えることがある）
-    if (!auth.currentUser){
-      setSyncChip("同期: -");
-    }
+    setSyncChip("同期: -");
   }
 })();
 
@@ -1931,24 +1906,3 @@ onAuthStateChanged(auth, async (user)=>{
   scheduleSave();
   render();
 })();
-
-// ===== 最後に必ずイベント接続（DOM構築後に実行）=====
-window.addEventListener("DOMContentLoaded", () => {
-  const loginBtn = document.getElementById("loginBtn");
-  const gateLoginBtn = document.getElementById("gateLoginBtn");
-
-  console.log("wire login buttons:", !!loginBtn, !!gateLoginBtn);
-
-  if (loginBtn) {
-    loginBtn.addEventListener("click", () => {
-      console.log("LOGIN BUTTON CLICKED");
-      doLogin();
-    });
-  }
-  if (gateLoginBtn) {
-    gateLoginBtn.addEventListener("click", () => {
-      console.log("GATE LOGIN CLICKED");
-      doLogin();
-    });
-  }
-});
