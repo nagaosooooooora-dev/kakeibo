@@ -1847,22 +1847,39 @@ async function doLogin(){
     const isIOS = /iPhone|iPad|iPod/i.test(ua);
     const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
 
+    // ✅ 追加：ログイン開始直前に persistence を確定（iOS Safari安定化）
+    try{
+      await setPersistence(auth, browserLocalPersistence);
+      console.log("[auth] doLogin persistence: local");
+    } catch(e1){
+      console.warn("[auth] doLogin local persistence failed -> session", e1);
+      await setPersistence(auth, browserSessionPersistence);
+      console.log("[auth] doLogin persistence: session");
+    }
+
     // iOS Safari is strict about popups. Prefer redirect there.
     if (isIOS && isSafari){
+      console.log("[auth] doLogin -> redirect");
       await signInWithRedirect(auth, provider);
       return;
     }
+
+    console.log("[auth] doLogin -> popup");
     await signInWithPopup(auth, provider);
+
   } catch (e){
-    console.error(e);
-    // If popup failed, try redirect as a fallback.
+    console.error("[auth] doLogin failed", e);
+
+    // popup failed, try redirect as a fallback.
     try{
+      console.log("[auth] doLogin fallback -> redirect");
       await signInWithRedirect(auth, provider);
       return;
     } catch (e2){
-      console.error(e2);
+      console.error("[auth] doLogin fallback redirect failed", e2);
     }
-    alert("ログインに失敗しました。Authorized domainsの設定に加えて、iPhoneのSafariがプライベートブラウズ中でないか / Cookieをブロックしていないかも確認してください。");
+
+    alert("ログインに失敗しました。iPhoneのSafariがプライベートブラウズ中でないか / Cookieをブロックしていないかも確認してください。");
   }
 }
 async function doLogout(){
