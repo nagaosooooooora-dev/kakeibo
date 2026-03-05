@@ -1,8 +1,10 @@
 import { firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-
+import { 
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 // Budget App Prototype (localStorage)
 // v0.6 — All missing features in one pass:
 // - 取引入力（サブカテゴリ/イレギュラー/メモ）
@@ -1882,27 +1884,39 @@ logoutBtn?.addEventListener("click", doLogout);
 (async ()=>{
   try{
     setSyncChip("同期: ログイン確認中…");
+
+    // ★ iOS Safari対策
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+      console.log("[auth] persistence: local");
+    } catch (e) {
+      console.warn("[auth] local persistence failed -> session", e);
+      await setPersistence(auth, browserSessionPersistence);
+      console.log("[auth] persistence: session");
+    }
+
     const result = await getRedirectResult(auth);
+
     if (result?.user){
-      // Redirect sign-in completed.
       setSyncChip("同期: ログインOK");
       setTimeout(()=>setSyncChip("同期: -"), 1200);
+      console.log("[auth] redirect completed", result.user.uid);
     }
+
   } catch(e){
-    // When Safari blocks Web Storage (private mode / strict settings), redirect sign-in can't complete.
     console.warn("[auth] getRedirectResult failed:", e);
+
     const msg = String(e?.code || e?.message || "");
     if (/web-storage-unsupported|operation-not-supported|storage|redirect/i.test(msg)){
       alert("iPhoneのSafari側でログイン情報の保存がブロックされている可能性があります。プライベートブラウズをOFF、CookieブロックOFF、必要なら『履歴とWebサイトデータを消去』後に再試行してください。");
     }
+
   } finally {
-    // Don't overwrite a success message instantly
-    if (document.getElementById("syncChip")?.textContent?.includes("ログインOK") === false){
+    if (!document.getElementById("syncChip")?.textContent?.includes("ログインOK")){
       setSyncChip("同期: -");
     }
   }
 })();
-
 onAuthStateChanged(auth, async (user)=>{
   if (!user){
     uid = null;
