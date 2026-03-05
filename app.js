@@ -1834,11 +1834,11 @@ function showGate(show){
 }
 
 async function doLogin(){
-  try{
+  console.log("LOGIN BUTTON CLICKED");   // ←この行を追加
 
+  try{
     const provider = new GoogleAuthProvider();
 
-    // iPhone (iOS) は popup が失敗しやすいので redirect を使う
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
     if (isIOS){
@@ -1846,21 +1846,10 @@ async function doLogin(){
       return;
     }
 
-    // iPhone以外は popup
     await signInWithPopup(auth, provider);
 
-  } catch (e){
-
+  }catch(e){
     console.error(e);
-
-    // popupが失敗した場合は redirect にフォールバック
-    try{
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-    }catch(e2){
-      console.error(e2);
-    }
-
   }
 }
 async function doLogout(){
