@@ -1829,12 +1829,14 @@ async function doLogin(){
     const isIOS = /iPhone|iPad|iPod/i.test(ua);
     const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
 
-    // iOS Safari is strict about popups. Prefer redirect there.
-    if (isIOS && isSafari){
-      await signInWithRedirect(auth, provider);
-      return;
-    }
-    await signInWithPopup(auth, provider);
+// iOS は WebView/Safari 問わず popup が不安定になりがちなので redirect 固定
+if (isIOS){
+  await signInWithRedirect(auth, provider);
+  return;
+}
+
+// iOS以外は popup → 失敗したら redirect
+await signInWithPopup(auth, provider);
   } catch (e){
     console.error(e);
     // If popup failed, try redirect as a fallback.
