@@ -1,7 +1,7 @@
 import { firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 // Budget App Prototype (localStorage)
 // v0.6 — All missing features in one pass:
@@ -95,8 +95,29 @@ function monthFromDateISO(dateISO){
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
+
+// Sanity check: if firebase-config.js is still the template, Auth will never work.
+if ((firebaseConfig?.apiKey || "").startsWith("YOUR_")){
+  console.error("firebase-config.js is not configured. apiKey is still 'YOUR_API_KEY'.");
+  alert("firebase-config.js がテンプレのままです（YOUR_API_KEY）。Firebase Console の設定値を入れて、GitHub Pages に反映してください。");
+}
+
 // Keep session across reloads (important on iOS Safari)
-setPersistence(auth, browserLocalPersistence).catch(()=>{});
+// Keep session across reloads (important on iOS Safari)
+// Try localStorage persistence first; if Safari blocks it (e.g., private mode), fall back to sessionStorage.
+(async ()=>{
+  try{
+    await setPersistence(auth, browserLocalPersistence);
+  } catch(e){
+    console.warn("[auth] browserLocalPersistence failed; fallback to session.", e);
+    try{
+      await setPersistence(auth, browserSessionPersistence);
+    } catch(e2){
+      console.error("[auth] browserSessionPersistence also failed.", e2);
+      // If both fail, Auth may not survive redirects/reloads.
+    }
+  }
+})();
 const provider = new GoogleAuthProvider();
 
 let uid = null;
@@ -1861,12 +1882,24 @@ logoutBtn?.addEventListener("click", doLogout);
 (async ()=>{
   try{
     setSyncChip("同期: ログイン確認中…");
-    await getRedirectResult(auth);
+    const result = await getRedirectResult(auth);
+    if (result?.user){
+      // Redirect sign-in completed.
+      setSyncChip("同期: ログインOK");
+      setTimeout(()=>setSyncChip("同期: -"), 1200);
+    }
   } catch(e){
-    // ignore when there's no redirect to complete
-    console.warn(e);
+    // When Safari blocks Web Storage (private mode / strict settings), redirect sign-in can't complete.
+    console.warn("[auth] getRedirectResult failed:", e);
+    const msg = String(e?.code || e?.message || "");
+    if (/web-storage-unsupported|operation-not-supported|storage|redirect/i.test(msg)){
+      alert("iPhoneのSafari側でログイン情報の保存がブロックされている可能性があります。プライベートブラウズをOFF、CookieブロックOFF、必要なら『履歴とWebサイトデータを消去』後に再試行してください。");
+    }
   } finally {
-    setSyncChip("同期: -");
+    // Don't overwrite a success message instantly
+    if (document.getElementById("syncChip")?.textContent?.includes("ログインOK") === false){
+      setSyncChip("同期: -");
+    }
   }
 })();
 
