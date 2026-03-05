@@ -1,3 +1,5 @@
+console.log("app.js loaded");
+
 import { firebaseConfig } from "./firebase-config.js?v=1";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
@@ -1929,3 +1931,24 @@ onAuthStateChanged(auth, async (user)=>{
   scheduleSave();
   render();
 })();
+
+// ===== 最後に必ずイベント接続（DOM構築後に実行）=====
+window.addEventListener("DOMContentLoaded", () => {
+  const loginBtn = document.getElementById("loginBtn");
+  const gateLoginBtn = document.getElementById("gateLoginBtn");
+
+  console.log("wire login buttons:", !!loginBtn, !!gateLoginBtn);
+
+  if (loginBtn) {
+    loginBtn.addEventListener("click", () => {
+      console.log("LOGIN BUTTON CLICKED");
+      doLogin();
+    });
+  }
+  if (gateLoginBtn) {
+    gateLoginBtn.addEventListener("click", () => {
+      console.log("GATE LOGIN CLICKED");
+      doLogin();
+    });
+  }
+});
