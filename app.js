@@ -1,10 +1,7 @@
 import { firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { 
-  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
-  signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 // Budget App Prototype (localStorage)
 // v0.6 — All missing features in one pass:
 // - 取引入力（サブカテゴリ/イレギュラー/メモ）
@@ -1901,7 +1898,9 @@ logoutBtn?.addEventListener("click", doLogout);
       setSyncChip("同期: ログインOK");
       setTimeout(()=>setSyncChip("同期: -"), 1200);
       console.log("[auth] redirect completed", result.user.uid);
+      return;
     }
+    console.log("[auth] no redirect result");
 
   } catch(e){
     console.warn("[auth] getRedirectResult failed:", e);
