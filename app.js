@@ -1900,6 +1900,7 @@ async function doLogin(){
 
     // iOS Safari is strict about popups. Prefer redirect there.
     if (isIOS && isSafari){
+      location.hash = "doLogim";
       console.log("[AUTHDBG] doLogin -> signInWithRedirect");
       await signInWithRedirect(auth, provider);
       return; // ここでGoogleに飛ぶ
