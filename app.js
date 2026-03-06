@@ -1934,10 +1934,6 @@ loginBtn?.addEventListener("click", doLogin);
 gateLoginBtn?.addEventListener("click", doLogin);
 logoutBtn?.addEventListener("click", doLogout);
 
-// Complete redirect sign-in (iOS Safari) - do it early
-(async ()=>{
-  try{
-    setSyncChip("同期: ログイン確認中…");
 // Complete redirect sign-in (iOS Safari) - run on page load
 (async ()=>{
   try{
