@@ -94,6 +94,54 @@ function monthFromDateISO(dateISO){
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
+// ===== AUTH DEBUG (remove after fix) =====
+(function authDebugSetup(){
+  const log = (...a)=>console.log("[AUTHDBG]", ...a);
+
+  // 0) 今どのURL(オリジン)で動いてるか
+  log("location.href =", location.href);
+  log("location.origin =", location.origin);
+  log("userAgent =", navigator.userAgent);
+
+  // 1) Storageが使えるか（iOS Safariで死ぬとredirect復帰できない）
+  const storageCheck = (name, obj)=>{
+    try{
+      const k="__t";
+      obj.setItem(k, "1");
+      const v=obj.getItem(k);
+      obj.removeItem(k);
+      log(name, "OK", "value=", v);
+    } catch(e){
+      log(name, "FAIL", e?.name, e?.message);
+    }
+  };
+  storageCheck("localStorage", window.localStorage);
+  storageCheck("sessionStorage", window.sessionStorage);
+
+  // 2) redirect復帰結果を必ず表示（成功/なし/エラー）
+  (async ()=>{
+    try{
+      log("calling getRedirectResult...");
+      const res = await getRedirectResult(auth);
+      if (res?.user){
+        log("getRedirectResult: USER", { uid: res.user.uid, email: res.user.email });
+      } else {
+        log("getRedirectResult: NO RESULT");
+      }
+    } catch(e){
+      log("getRedirectResult: ERROR", e?.code || e?.name, e?.message || e);
+    }
+  })();
+
+  // 3) Auth状態変化を全部ログ
+  onAuthStateChanged(auth, (user)=>{
+    if (user){
+      log("onAuthStateChanged: USER", { uid: user.uid, email: user.email });
+    } else {
+      log("onAuthStateChanged: NULL");
+    }
+  });
+})();
 
 // Sanity check: if firebase-config.js is still the template, Auth will never work.
 if ((firebaseConfig?.apiKey || "").startsWith("YOUR_")){
