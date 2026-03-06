@@ -1886,12 +1886,15 @@ async function doLogin(){
     console.log("[AUTHDBG] doLogin clicked", { isIOS, isSafari });
 
     // iOS Safari is strict about popups. Prefer redirect there.
-    if (isIOS && isSafari){
-      location.hash = "doLogim";
-      console.log("[AUTHDBG] doLogin -> signInWithRedirect");
-      await signInWithRedirect(auth, provider);
-      return; // ここでGoogleに飛ぶ
-    }
+   if (isIOS && isSafari){
+    // ★ログイン開始直前にも persistence を確定
+    try{ await setPersistence(auth, browserLocalPersistence); }
+    catch{ await setPersistence(auth, browserSessionPersistence); }
+    
+    location.hash = "doLogin"; // （誤字ってるなら直してOK）
+    await signInWithRedirect(auth, provider);
+    return;
+  }
 
     console.log("[AUTHDBG] doLogin -> signInWithPopup");
     await signInWithPopup(auth, provider);
@@ -1926,6 +1929,27 @@ logoutBtn?.addEventListener("click", doLogout);
   try{
     setSyncChip("同期: ログイン確認中…");
 
+    // --- DEBUG: storage keys snapshot ---
+    const snapKeys = () => {
+      const pick = (st) => {
+        try{
+          const keys = [];
+          for (let i=0; i<st.length; i++){
+            const k = st.key(i);
+            if (!k) continue;
+            // firebase auth/redirectっぽいものだけ拾う
+            if (/firebase|auth|redirect|gapi|google/i.test(k)) keys.push(k);
+          }
+          return keys.sort();
+        }catch(_){ return ["<unavailable>"]; }
+      };
+      console.log("[auth][dbg] href", location.href);
+      console.log("[auth][dbg] localStorage keys", pick(localStorage));
+      console.log("[auth][dbg] sessionStorage keys", pick(sessionStorage));
+    };
+
+    snapKeys();
+
     // ① persistence を最初に確定（iOS Safari対策）
     try{
       await setPersistence(auth, browserLocalPersistence);
@@ -1936,37 +1960,30 @@ logoutBtn?.addEventListener("click", doLogout);
       console.log("[auth] persistence: session");
     }
 
-    // ② redirectログインの結果を取得
+    // ② ここでもう一回スナップ（persistenceでキーが増えることがある）
+    snapKeys();
+
+    // ③ redirect結果を取得
+    console.log("[auth][dbg] calling getRedirectResult...");
     const result = await getRedirectResult(auth);
 
-    if(result && result.user){
-      console.log("[auth] redirect completed:", result.user.uid);
-
+    if (result?.user){
+      console.log("[auth] redirect completed", result.user.uid);
       setSyncChip("同期: ログインOK");
-      setTimeout(()=>setSyncChip("同期: -"),1200);
-
+      setTimeout(()=>setSyncChip("同期: -"), 1200);
       return;
     }
 
     console.log("[auth] no redirect result");
 
+    // ④ 念のため、少し待って currentUser を確認（iOSで遅延することがある）
+    await new Promise(r=>setTimeout(r, 1200));
+    console.log("[auth][dbg] after 1.2s currentUser =", auth.currentUser?.uid || null);
+
   }catch(e){
     console.warn("[auth] getRedirectResult failed:", e);
-
-    const msg = String(e?.code || e?.message || "");
-
-    if(/web-storage-unsupported|operation-not-supported|storage|redirect/i.test(msg)){
-      alert(
-        "iPhoneのSafari側でログイン情報の保存がブロックされている可能性があります。\n\n"+
-        "・プライベートブラウズをOFF\n"+
-        "・CookieブロックOFF\n"+
-        "・必要なら Safariの履歴とWebサイトデータを消去\n\n"+
-        "その後もう一度ログインしてください。"
-      );
-    }
-
   }finally{
-    if(!document.getElementById("syncChip")?.textContent?.includes("ログインOK")){
+    if (!document.getElementById("syncChip")?.textContent?.includes("ログインOK")){
       setSyncChip("同期: -");
     }
   }
