@@ -1938,41 +1938,57 @@ logoutBtn?.addEventListener("click", doLogout);
 (async ()=>{
   try{
     setSyncChip("同期: ログイン確認中…");
+// Complete redirect sign-in (iOS Safari) - run on page load
+(async ()=>{
+  try{
+    setSyncChip("同期: ログイン確認中…");
 
-    // ★ iOS Safari対策
-    try {
+    // ① persistence を最初に確定（iOS Safari対策）
+    try{
       await setPersistence(auth, browserLocalPersistence);
       console.log("[auth] persistence: local");
-    } catch (e) {
+    }catch(e){
       console.warn("[auth] local persistence failed -> session", e);
       await setPersistence(auth, browserSessionPersistence);
       console.log("[auth] persistence: session");
     }
 
+    // ② redirectログインの結果を取得
     const result = await getRedirectResult(auth);
 
-    if (result?.user){
+    if(result && result.user){
+      console.log("[auth] redirect completed:", result.user.uid);
+
       setSyncChip("同期: ログインOK");
-      setTimeout(()=>setSyncChip("同期: -"), 1200);
-      console.log("[auth] redirect completed", result.user.uid);
+      setTimeout(()=>setSyncChip("同期: -"),1200);
+
       return;
     }
+
     console.log("[auth] no redirect result");
 
-  } catch(e){
+  }catch(e){
     console.warn("[auth] getRedirectResult failed:", e);
 
     const msg = String(e?.code || e?.message || "");
-    if (/web-storage-unsupported|operation-not-supported|storage|redirect/i.test(msg)){
-      alert("iPhoneのSafari側でログイン情報の保存がブロックされている可能性があります。プライベートブラウズをOFF、CookieブロックOFF、必要なら『履歴とWebサイトデータを消去』後に再試行してください。");
+
+    if(/web-storage-unsupported|operation-not-supported|storage|redirect/i.test(msg)){
+      alert(
+        "iPhoneのSafari側でログイン情報の保存がブロックされている可能性があります。\n\n"+
+        "・プライベートブラウズをOFF\n"+
+        "・CookieブロックOFF\n"+
+        "・必要なら Safariの履歴とWebサイトデータを消去\n\n"+
+        "その後もう一度ログインしてください。"
+      );
     }
 
-  } finally {
-    if (!document.getElementById("syncChip")?.textContent?.includes("ログインOK")){
+  }finally{
+    if(!document.getElementById("syncChip")?.textContent?.includes("ログインOK")){
       setSyncChip("同期: -");
     }
   }
 })();
+
 onAuthStateChanged(auth, async (user)=>{
   if (!user){
     uid = null;
