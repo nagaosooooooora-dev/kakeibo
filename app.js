@@ -118,20 +118,7 @@ const auth = getAuth(fbApp);
   storageCheck("localStorage", window.localStorage);
   storageCheck("sessionStorage", window.sessionStorage);
 
-  // 2) redirect復帰結果を必ず表示（成功/なし/エラー）
-  (async ()=>{
-    try{
-      log("calling getRedirectResult...");
-      const res = await getRedirectResult(auth);
-      if (res?.user){
-        log("getRedirectResult: USER", { uid: res.user.uid, email: res.user.email });
-      } else {
-        log("getRedirectResult: NO RESULT");
-      }
-    } catch(e){
-      log("getRedirectResult: ERROR", e?.code || e?.name, e?.message || e);
-    }
-  })();
+
 
   // 3) Auth状態変化を全部ログ
   onAuthStateChanged(auth, (user)=>{
