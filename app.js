@@ -1890,6 +1890,7 @@ function showGate(show){
 }
 
 async function doLogin(){
+  setSyncChip("同期: doLoginが呼ばれた");
   try{
     const ua = navigator.userAgent || "";
     const isIOS = /iPhone|iPad|iPod/i.test(ua);
